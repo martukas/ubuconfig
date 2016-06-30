@@ -14,26 +14,26 @@ You will manually need to install the colorize gem after restarting console.
 * Sets up ssh public key, adds it to ssh-agent, copies to clipboard for you to add to github. If running in VM, make sure you have shared clipboard or can log into github inside VM.
 
 * Installs these packages:
--synaptic
--guake
--gedit
--geany
--basex
--bless
--sox
--gdb
--git
--xclip
--chromium-browser
--dosbox
+synaptic
+guake
+gedit
+geany
+basex
+bless
+sox
+gdb
+git
+xclip
+chromium-browser
+dosbox
 
 * If you agree to "disk tools", it will also install:
--gparted
--baobab
+gparted
+baobab
 
 * If you agree to "multimedia players", it will also install:
--qmmp
--clementine
--vlc
+qmmp
+clementine
+vlc
 
 
