@@ -102,7 +102,7 @@ alias sudo='sudo '
 alias own='sudo -R chown $(id -un):$(id -gn)'
 
 mk () {
-	~/colormake.sh $@
+	~/colormake/colormake.sh $@
 }
 
 #export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"~/Qt/5.7/gcc_64/lib/"
