@@ -8,6 +8,7 @@ if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
 
+
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;
@@ -82,6 +83,7 @@ esac
 #   sleep 10; alert
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 
+
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
 # sources /etc/bash.bashrc).
@@ -97,7 +99,7 @@ fi
 #    export PATH="/usr/lib/outproc/bin:$PATH"
 #fi
 
-alias python=/usr/bin/python3
+#alias python=/usr/bin/python3
 alias sudo='sudo '
 alias own='sudo -R chown $(id -un):$(id -gn)'
 
@@ -105,4 +107,9 @@ mk () {
 	~/colormake/colormake.sh $@
 }
 
-#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"~/Qt/5.7/gcc_64/lib/"
+export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"/home/bdv/Qt/5.7/gcc_64/lib/"
+
+source $HOME/dev/rootbuild/bin/thisroot.sh
+source $HOME/dev/dg_dgcode/bootstrap.sh
+alias rview='root $HOME/dev/dg_dgcode/packages/Projects/NMXAnalysis/ROOT/ViewData.C -l'
