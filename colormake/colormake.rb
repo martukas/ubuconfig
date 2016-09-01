@@ -198,6 +198,12 @@ time = Benchmark.realtime{
         if $initlines == 0
            $initlines = 1
         end
+      elsif str.include? "/clang++ "
+        print ".".bold.magenta
+        $no_of_items += 1		
+        if $initlines == 0
+           $initlines = 1
+        end
       elsif str.include? "/moc "
         print ".".bold.magenta
         $no_of_items += 1		
