@@ -10,6 +10,9 @@ disk=${disk,,} # tolower
 read -r -p "Install multimedia players? [Y/n]" mult
 mult=${mult,,} # tolower
 
+read -r -p "Install redshift? [Y/n]" rshift
+rshift=${rshift,,} # tolower
+
 read -p "Email for github ssh key: " email
 read -p "Username for github: " ghname
 
@@ -24,6 +27,10 @@ fi
 
 if [[ $disk =~ ^(yes|y| ) ]]; then
   sudo apt-get -y install gparted baobab
+fi
+
+if [[ $rshift =~ ^(yes|y| ) ]]; then
+  sudo apt-get -y install redshift-gtk
 fi
 
 ssh-keygen -t rsa -b 4096 -C "$email"
