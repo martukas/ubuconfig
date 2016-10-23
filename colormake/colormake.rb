@@ -1,13 +1,26 @@
 require 'benchmark'
 require 'open3'
 
+#presets
+default_cmd_line_compiler = "make"
+$compilers = ["gcc ", "g++ ", "clang++ ", "/moc ", "/uic "]
+$error_aux_phrases = ["in member function", "in constructor", "in function", "in file included"]
+$maxerrors = 9
+
+
 # Globals
 $no_of_warnings = 0
 $no_of_errors = 0
 $no_of_items = 0
 $initlines = 1
 
-$maxerrors = 9
+def time_dif_fancy(total_seconds)
+  seconds = total_seconds % 60
+  minutes = (total_seconds / 60) % 60
+  hours = total_seconds / (60 * 60)
+
+  format("%02d:%02d:%02d", hours, minutes, seconds) #=> "01:00:00"
+end
 
 class String
 def black;          "\e[30m#{self}\e[0m" end
@@ -44,141 +57,149 @@ def blink;          "\e[5m#{self}\e[25m" end
 def reverse_color;  "\e[7m#{self}\e[27m" end
 end
 
-default_cmd_line_compiler = "make"
+def colorcode(str, type)
+  if type.include? "error"
+    str.lred
+  elsif type.include? "warning"
+    str.yellow
+  elsif type.include? "aux"
+    str.lblue
+  elsif
+    str.pink
+  end
+end
 
-puts (" " * 107).bg_magenta
-puts (" " * 107).bg_magenta
-puts (" " * 50 + "M A K E" + " " * 50).bg_magenta
-puts (" " * 107).bg_magenta
-puts (" " * 107).bg_magenta
+def colorcode2(str, type)
+  if type.include? "error"
+    str.red
+  elsif type.include? "warning"
+    str.brown
+  elsif type.include? "aux"
+    str.blue
+  elsif
+    str.magenta
+  end
+end
 
-#puts (" " * 107).magenta.swap
-#puts (" " * 107).magenta.swap
-#puts (" " * 50 + "M A K E" + " " * 50).magenta.swap
-#puts (" " * 107).magenta.swap
-#puts (" " * 107).magenta.swap
+def is_compiler_line(str)
+  $compilers.any? { |cmp| str.include? cmp }
+end
 
-cmd_line = ""
+def is_error_aux_line(str)
+  $error_aux_phrases.any? { |cmp| str.include? cmp }
+end
+
+
+def print_err_aux(str)
+  if $initlines != 0 
+    puts
+  end
+  if ($no_of_errors > $maxerrors)
+    print colorcode(".".bold, "aux")
+  elsif
+    puts colorcode(str.bold, "aux") 
+  end
+    $initlines = 0
+end
+
+def print_boring(str)
+  nn = str.scan(/(\S+[.]cpp|\S+[.]cc|\S+[.]ui)/)
+  nl = str.scan(/-o (\S+)/)
+  if not nn.empty?
+    print (nn.join).green + "   ";
+  elsif (not nl.empty?) && is_compiler_line(str) && (not nl.join.include? ".o")
+    puts ("\nLINKING " + nl.join).bold.green;
+  else
+    print colorcode2(".".bold, "")
+  end
+end
+
+def nothing_exciting(str)
+  print_boring(str)
+  $no_of_items += 1
+  if $initlines == 0
+    $initlines = 1
+  end
+end
+
+def format_substantial(str, type)
+  nstr = ""
+  header = 0
+  str.split(':').each { |piece|
+    token = piece
+    nn = piece.scan(/\d+/)
+    if header == 0
+      nstr += colorcode2((token + "  ").bold, type)
+      header = 1
+    elsif header == 5
+      nstr += colorcode2((token + ":"), type)
+    elsif not nn.empty?
+      if header < 2
+        nstr += ("[" + nn.join + "]").bold.white
+      end
+      header += 1
+    elsif (token.downcase.include? type)
+      nstr += " "
+      header = 5
+    elsif (token.empty?)
+      nstr += " "
+    else
+      nstr += colorcode(token.to_s + ":", type)
+    end
+  }
+  nstr
+end
+
+def substantial(str, type)
+  if $initlines != 0
+    puts
+  end
+  if ($no_of_errors > $maxerrors)
+    print colorcode2(".".bold, type)
+  elsif
+    puts format_substantial(str, type)
+  end
+  $initlines = 0
+end
+
+
+
+
 
 # build command line based on command line input or just use the default
+cmd_line = ""
 if( ARGV.size>0 )
-	ARGV.each do|a|
-	  cmd_line = cmd_line + a + " "
-	end
-	cmd_line = default_cmd_line_compiler + " " + cmd_line
+  ARGV.each do|a|
+    cmd_line = cmd_line + a + " "
+  end
+  cmd_line = default_cmd_line_compiler + " " + cmd_line
 else
-	cmd_line = default_cmd_line_compiler
+  cmd_line = default_cmd_line_compiler
 end
 
 # show the command line to the user
-puts
-puts cmd_line.bold.magenta
+cmd_spaced = cmd_line.gsub(/(.)/, '\1 ').upcase
+half = (80 - cmd_spaced.length) / 2;
+puts (" " * 80).bg_magenta
+puts (" " * 80).bg_magenta
+puts (" " * half + cmd_spaced + " " * half).bg_magenta
+puts (" " * 80).bg_magenta
+puts (" " * 80).bg_magenta
 
-time = Benchmark.realtime{
-  Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
+
+time_start = Time.now
+Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
     while str = stdout.gets do
       str.delete!("\n")
 
-      if str.downcase.include? "in member function" 
-        if $initlines != 0 
-          puts
-        end
-        if ($no_of_errors > $maxerrors)
-          print ".".bold.lblue
-        elsif
-          puts str.bold.lblue 
-        end
-        $initlines = 0
-      elsif str.downcase.include? "in constructor" 
-        if $initlines != 0
-          puts
-        end
-        if ($no_of_errors > $maxerrors)
-          print ".".bold.lblue
-        elsif
-          puts str.bold.lblue 
-        end
-        $initlines = 0
-      elsif str.downcase.include? "in function" 
-        if $initlines != 0
-          puts
-        end
-        if ($no_of_errors > $maxerrors)
-          print ".".bold.lblue
-        elsif
-          puts str.bold.lblue 
-        end
-        $initlines = 0
+      if is_error_aux_line(str.downcase)
+        print_err_aux(str)
       elsif str.downcase.include? "warning:"
-        if $initlines != 0
-          puts
-        end
-        nstr = ""
-        $header = 0
-        str.split(':').each { |piece|
-          token = piece
-          nn = piece.scan(/\d+/)
-          if $header == 0
-			nstr += (token + "  ").bold.brown
-			$header = 1
-          elsif $header == 5
-			nstr += (token + ":").brown
-          elsif not nn.empty?
-            if $header < 2
-				nstr += ("[" + nn.join + "]").bold.white
-			end
-            $header += 1
-          elsif (token.downcase.include? "warning")
-            nstr += " "
-            $header = 5
-          elsif (token.empty?)
-            nstr += " "
-          else
-            nstr += (token.to_s + ":").yellow
-          end
-        }
-        if ($no_of_errors > $maxerrors)
-          print ".".bold.brown
-        elsif
-          puts nstr
-        end
+        substantial(str, "warning")
         $no_of_warnings += 1
-        $initlines = 0
       elsif (str.downcase.include? "error:") or (str.downcase.include? "undefined reference to")
-        if $initlines != 0
-          puts
-        end
-        nstr = ""
-        $header = 0
-        str.split(':').each { |piece|
-          token = piece
-          nn = piece.scan(/\d+/)
-          if $header == 0
-			nstr += (token + "  ").bold.red
-			$header = 1
-          elsif $header == 5
-			nstr += (token + ":").red
-          elsif not nn.empty?
-            if $header < 2
-				nstr += ("[" + nn.join + "]").bold.white
-			end
-            $header += 1
-          elsif (token.downcase.include? "error")
-            nstr += " "
-            $header = 5
-          elsif (token.empty?)
-            nstr += " "
-          else
-            nstr += (token.to_s + ":").lred
-          end
-        }
-        if ($no_of_errors > $maxerrors)
-          print ".".bold.red
-        elsif
-          puts nstr
-        end
+        substantial(str, "error")
         $no_of_errors += 1
-        $initlines = 0
       elsif str.include? " Error "
         if $initlines != 0
           puts
@@ -186,54 +207,32 @@ time = Benchmark.realtime{
         puts str.bold.lred
         $no_of_errors += 1		
         $initlines = 5
-      elsif str[0..2] == "gcc"
-        print ".".bold.magenta
-        $no_of_items += 1
-        if $initlines == 0
-           $initlines = 1
-        end
-      elsif str[0..2] == "g++"
-        print ".".bold.magenta
-        $no_of_items += 1		
-        if $initlines == 0
-           $initlines = 1
-        end
-      elsif str.include? "/clang++ "
-        print ".".bold.magenta
-        $no_of_items += 1		
-        if $initlines == 0
-           $initlines = 1
-        end
-      elsif str.include? "/moc "
-        print ".".bold.magenta
-        $no_of_items += 1		
-        if $initlines == 0
-           $initlines = 1
-        end
+      elsif is_compiler_line(str)
+        nothing_exciting(str)
       elsif $initlines == 1
-        print ".".bold.magenta
+        print_boring(str)
       else
         if ($no_of_errors > $maxerrors)
-          print ".".bold.lblue
+          print colorcode(".".bold, "aux")
         elsif
-          puts str.bold.lblue 
+          puts colorcode(str.bold, "aux") 
         end
       end
       
     end
-  end
-}
-  
-  # show our statistics to the user
-  puts
-  puts " Build Statistics".bg_cyan + (" " * (" Compile time: #{time} seconds".length - " Build Statistics".length)).bg_cyan
-  puts (" Items: " + $no_of_items.to_s + (" " * (" Compile time: #{time} seconds".length - " Items: ".length -  $no_of_items.to_s.length))).bg_cyan
-  puts (" Warnings: " + $no_of_warnings.to_s + (" " * (" Compile time: #{time} seconds".length - " Warnings: ".length -  $no_of_warnings.to_s.length))).bg_cyan
-  puts (" Errors: " + $no_of_errors.to_s + (" " * (" Compile time: #{time} seconds".length - " Errors: ".length -  $no_of_errors.to_s.length))).bg_cyan
-  puts " Compile time: #{time} seconds".bg_cyan
+end
+tdif = Time.now - time_start
+
+time_dif = "  Compile time: " + time_dif_fancy(tdif) + "  "
+
+# show our statistics to the user
+puts ("  Items: " + $no_of_items.to_s + (" " * (time_dif.length - "  Items: ".length -  $no_of_items.to_s.length))).bg_cyan
+puts ("  Warnings: " + $no_of_warnings.to_s + (" " * (time_dif.length - "  Warnings: ".length - $no_of_warnings.to_s.length))).bg_cyan
+puts ("  Errors: " + $no_of_errors.to_s + (" " * (time_dif.length - "  Errors: ".length -  $no_of_errors.to_s.length))).bg_cyan
+puts time_dif.bg_cyan
 
 if $no_of_errors > 0
-	exit 1
+  exit 1
 else
-	exit 0
+  exit 0
 end
