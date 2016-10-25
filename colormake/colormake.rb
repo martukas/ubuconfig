@@ -227,14 +227,30 @@ Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
 end
 tdif = Time.now - time_start
 
-time_dif = "  Compile time: " + time_dif_fancy(tdif) + "  "
+summary_text  = "   Items: " + $no_of_items.to_s
 
-# show our statistics to the user
-puts
-puts ("  Items: " + $no_of_items.to_s + (" " * (time_dif.length - "  Items: ".length -  $no_of_items.to_s.length))).bg_cyan
-puts ("  Warnings: " + $no_of_warnings.to_s + (" " * (time_dif.length - "  Warnings: ".length - $no_of_warnings.to_s.length))).bg_cyan
-puts ("  Errors: " + $no_of_errors.to_s + (" " * (time_dif.length - "  Errors: ".length -  $no_of_errors.to_s.length))).bg_cyan
-puts time_dif.bg_cyan
+if ($no_of_errors > 0)
+  summary_text += "   Errors: " + $no_of_errors.to_s
+end
+
+if ($no_of_warnings > 0)
+  summary_text += "   Warnings: " + $no_of_warnings.to_s
+end
+
+time_text = "Compile time: " + time_dif_fancy(tdif) + "   "
+
+summarylen = summary_text.length + time_text.length
+summary_text += " " * (cols - summarylen) + time_text
+
+if ($no_of_errors > 0)
+  summary_text = summary_text.bg_red
+elsif ($no_of_warnings > 0)
+  summary_text = summary_text.bg_brown
+else
+  summary_text = summary_text.bg_green
+end
+
+puts summary_text
 
 if $no_of_errors > 0
   exit 1
