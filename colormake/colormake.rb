@@ -178,14 +178,18 @@ else
 end
 
 # show the command line to the user
+scols = %x( tput cols )
+cols = scols.scan(/\d+/).first.to_i
+if (cols < 1)
+  cols = 80
+end
 cmd_spaced = cmd_line.gsub(/(.)/, '\1 ').upcase
-half = (80 - cmd_spaced.length) / 2;
-puts (" " * 80).bg_magenta
-puts (" " * 80).bg_magenta
+half = (cols - cmd_spaced.length) / 2;
+#puts (" " * cols).bg_magenta
+puts (" " * cols).bg_magenta
 puts (" " * half + cmd_spaced + " " * half).bg_magenta
-puts (" " * 80).bg_magenta
-puts (" " * 80).bg_magenta
-
+puts (" " * cols).bg_magenta
+#puts (" " * cols).bg_magenta
 
 time_start = Time.now
 Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
@@ -226,6 +230,7 @@ tdif = Time.now - time_start
 time_dif = "  Compile time: " + time_dif_fancy(tdif) + "  "
 
 # show our statistics to the user
+puts
 puts ("  Items: " + $no_of_items.to_s + (" " * (time_dif.length - "  Items: ".length -  $no_of_items.to_s.length))).bg_cyan
 puts ("  Warnings: " + $no_of_warnings.to_s + (" " * (time_dif.length - "  Warnings: ".length - $no_of_warnings.to_s.length))).bg_cyan
 puts ("  Errors: " + $no_of_errors.to_s + (" " * (time_dif.length - "  Errors: ".length -  $no_of_errors.to_s.length))).bg_cyan
