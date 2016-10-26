@@ -50,7 +50,7 @@ git config --global push.default simple
 sudo apt-get -y install curl
 gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
 \curl -sSL https://get.rvm.io | bash -s stable --ruby --auto-dotfiles
-read -p "Please restart shell and run: gem install colorize" -n1 -s
+echo "Please restart shell to use ruby and colormake"
 
 #exec bash
 #gem install colorize

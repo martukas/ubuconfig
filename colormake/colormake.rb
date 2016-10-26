@@ -185,11 +185,9 @@ if (cols < 1)
 end
 cmd_spaced = cmd_line.gsub(/(.)/, '\1 ').upcase
 half = (cols - cmd_spaced.length) / 2;
-#puts (" " * cols).bg_magenta
 puts (" " * cols).bg_magenta
 puts (" " * half + cmd_spaced + " " * half).bg_magenta
 puts (" " * cols).bg_magenta
-#puts (" " * cols).bg_magenta
 
 time_start = Time.now
 Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
@@ -250,6 +248,7 @@ else
   summary_text = summary_text.bg_green
 end
 
+puts
 puts summary_text
 
 if $no_of_errors > 0
