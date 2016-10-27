@@ -1,10 +1,12 @@
-require 'benchmark'
 require 'open3'
 
 #presets
 default_cmd_line_compiler = "make"
 $compilers = ["gcc ", "g++ ", "clang++ ", "/moc ", "/uic "]
+$error_phrases = ["error:", "undefined reference to"]
 $error_aux_phrases = ["in member function", "in constructor", "in function", "in file included"]
+$warning_phrases = ["warning:"]
+$linker_error_phrases = [" Error ", "recipe for target"]
 $maxerrors = 9
 
 
@@ -82,24 +84,39 @@ def colorcode2(str, type)
 end
 
 def is_compiler_line(str)
-  $compilers.any? { |cmp| str.include? cmp }
+  $compilers.any? { |cmp| str.downcase.include? cmp }
+end
+
+def is_error_line(str)
+  $error_phrases.any? { |cmp| str.downcase.include? cmp }
+end
+
+def is_warning_line(str)
+  $warning_phrases.any? { |cmp| str.downcase.include? cmp }
 end
 
 def is_error_aux_line(str)
-  $error_aux_phrases.any? { |cmp| str.include? cmp }
+  $error_aux_phrases.any? { |cmp| str.downcase.include? cmp }
 end
 
+def is_linker_error_line(str)
+  $linker_error_phrases.any? { |cmp| str.include? cmp }
+end
 
-def print_err_aux(str)
-  if $initlines != 0 
+def print_nl_maybe
+  if $initlines > 0
     puts
   end
+  $initlines = 0
+end
+
+def print_err_aux(str)
+  print_nl_maybe
   if ($no_of_errors > $maxerrors)
     print colorcode(".".bold, "aux")
   elsif
     puts colorcode(str.bold, "aux") 
   end
-    $initlines = 0
 end
 
 def print_boring(str)
@@ -107,8 +124,10 @@ def print_boring(str)
   nl = str.scan(/-o (\S+)/)
   if not nn.empty?
     print (nn.join).green + "   ";
+    $no_of_items += 1
   elsif (not nl.empty?) && is_compiler_line(str) && (not nl.join.include? ".o")
-    puts ("\nLINKING " + nl.join).bold.green;
+    print_nl_maybe
+    print ("\nLINKING " + nl.join).bold.green;
   else
     print colorcode2(".".bold, "")
   end
@@ -116,10 +135,7 @@ end
 
 def nothing_exciting(str)
   print_boring(str)
-  $no_of_items += 1
-  if $initlines == 0
-    $initlines = 1
-  end
+  $initlines = 1
 end
 
 def format_substantial(str, type)
@@ -151,17 +167,19 @@ def format_substantial(str, type)
 end
 
 def substantial(str, type)
-  if $initlines != 0
-    puts
-  end
+  print_nl_maybe
   if ($no_of_errors > $maxerrors)
     print colorcode2(".".bold, type)
   elsif
     puts format_substantial(str, type)
   end
-  $initlines = 0
 end
 
+def print_linker_err(str)
+  print_nl_maybe
+  puts str.bold.lred
+  $no_of_errors += 1
+end
 
 
 
@@ -194,21 +212,16 @@ Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
     while str = stdout.gets do
       str.delete!("\n")
 
-      if is_error_aux_line(str.downcase)
-        print_err_aux(str)
-      elsif str.downcase.include? "warning:"
-        substantial(str, "warning")
-        $no_of_warnings += 1
-      elsif (str.downcase.include? "error:") or (str.downcase.include? "undefined reference to")
+      if is_error_line(str)
         substantial(str, "error")
         $no_of_errors += 1
-      elsif str.include? " Error "
-        if $initlines != 0
-          puts
-        end
-        puts str.bold.lred
-        $no_of_errors += 1		
-        $initlines = 5
+      elsif is_warning_line(str)
+        substantial(str, "warning")
+        $no_of_warnings += 1
+      elsif is_error_aux_line(str)
+        print_err_aux(str)
+      elsif is_linker_error_line(str)
+        print_linker_err(str)
       elsif is_compiler_line(str)
         nothing_exciting(str)
       elsif $initlines == 1
@@ -248,7 +261,7 @@ else
   summary_text = summary_text.bg_green
 end
 
-puts
+print_nl_maybe
 puts summary_text
 
 if $no_of_errors > 0
