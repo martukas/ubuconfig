@@ -3,7 +3,8 @@ require 'open3'
 #presets
 default_cmd_line_compiler = "make"
 $compilers = ["gcc ", "g++ ", "clang++ ", "/moc ", "/uic "]
-$error_phrases = ["error:", "undefined reference to"]
+$ignore_phrases = ["rm ", "/make ", "warnings generated"]
+$error_phrases = ["error:", "undefined reference to", "no rule to make target"]
 $error_aux_phrases = ["in member function", "in constructor", "in function", "in file included"]
 $warning_phrases = ["warning:"]
 $linker_error_phrases = [" Error ", "recipe for target"]
@@ -12,9 +13,14 @@ $maxerrors = 9
 
 # Globals
 $no_of_warnings = 0
+$unique_warnings = 0
 $no_of_errors = 0
 $no_of_items = 0
-$initlines = 1
+$need_nl = 0
+$previous_warnings = []
+$printworthy = 0
+$recent_message = ""
+$recent_line = ""
 
 def time_dif_fancy(total_seconds)
   seconds = total_seconds % 60
@@ -66,7 +72,7 @@ def colorcode(str, type)
     str.yellow
   elsif type.include? "aux"
     str.lblue
-  elsif
+  else
     str.pink
   end
 end
@@ -78,7 +84,7 @@ def colorcode2(str, type)
     str.brown
   elsif type.include? "aux"
     str.blue
-  elsif
+  else
     str.magenta
   end
 end
@@ -103,19 +109,29 @@ def is_linker_error_line(str)
   $linker_error_phrases.any? { |cmp| str.include? cmp }
 end
 
+def is_ignored_line(str)
+  $ignore_phrases.any? { |cmp| str.include? cmp }
+end
+
 def print_nl_maybe
-  if $initlines > 0
+  if $need_nl > 0
     puts
   end
-  $initlines = 0
+  $need_nl = 0
 end
 
 def print_err_aux(str)
   print_nl_maybe
   if ($no_of_errors > $maxerrors)
-    print colorcode(".".bold, "aux")
-  elsif
-    puts colorcode(str.bold, "aux") 
+    #print colorcode(".".bold, "aux")
+    puts "-eaj- " + colorcode(str, "aux")
+  elsif not is_error_aux_line($recent_line)
+  	dump_message
+  	$recent_message += colorcode(str.bold, "aux") + "\n"  	
+  elsif not str.empty?
+  	$recent_message += colorcode(str.bold, "aux") + "\n"
+  elsif not str.empty?
+  	puts str.pink
   end
 end
 
@@ -123,24 +139,34 @@ def print_boring(str)
   nn = str.scan(/(\S+[.]cpp|\S+[.]cc|\S+[.]ui)/)
   nl = str.scan(/-o (\S+)/)
   if not nn.empty?
-    print (nn.join).green + "   ";
+  	if $need_nl > 0
+  		print "   "
+  	end
+    print nn.join("   ").green;
     $no_of_items += 1
+    $need_nl = 1
   elsif (not nl.empty?) && is_compiler_line(str) && (not nl.join.include? ".o")
     print_nl_maybe
-    print ("\nLINKING " + nl.join).bold.green;
+    puts ("\nLINKING " + nl.join).bold.green;
   else
-    print colorcode2(".".bold, "")
+  	$recent_message += colorcode2(str.bold, "aux") + "\n"
+    #print colorcode2(".".bold, "")
+    #puts "-bj- " + colorcode2(str, "aux")
   end
 end
 
-def nothing_exciting(str)
-  print_boring(str)
-  $initlines = 1
+def is_repeated_warning(str)
+  present = $previous_warnings.include? str
+  if not present
+  	$previous_warnings << str
+  	$unique_warnings += 1
+  end
+  present
 end
 
 def format_substantial(str, type)
-  nstr = ""
   header = 0
+  nstr = ""
   str.split(':').each { |piece|
     token = piece
     nn = piece.scan(/\d+/)
@@ -163,22 +189,45 @@ def format_substantial(str, type)
       nstr += colorcode(token.to_s + ":", type)
     end
   }
+#  if not nstr.empty?
+#  	nstr = $prepend_message + nstr
+#  end
   nstr
 end
 
 def substantial(str, type)
-  print_nl_maybe
-  if ($no_of_errors > $maxerrors)
-    print colorcode2(".".bold, type)
-  elsif
-    puts format_substantial(str, type)
+  if not is_error_aux_line($recent_message)
+  	dump_message
   end
+
+  nonunique = (type == "warning") && is_repeated_warning(str)
+  if ($no_of_errors > $maxerrors) || nonunique
+    print colorcode2(".".bold, type)
+    $need_nl = 1
+    $recent_message = ""
+  elsif not str.empty?
+    $recent_message += format_substantial(str, type) + "\n"
+    $printworthy = 1
+  end
+#  if not $prepend_message.empty?
+#    puts "prepend " + $prepend_message.pink 
+#  end
+#  $prepend_message = ""
 end
 
 def print_linker_err(str)
   print_nl_maybe
-  puts str.bold.lred
+  puts "linkerr " + str.bold.lred
   $no_of_errors += 1
+end
+
+def dump_message
+  if $printworthy > 0
+  	print_nl_maybe
+  	puts $recent_message
+  end
+  $recent_message = ""
+  $printworthy = 0
 end
 
 
@@ -212,31 +261,42 @@ Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
     while str = stdout.gets do
       str.delete!("\n")
 
-      if is_error_line(str)
+      if is_ignored_line(str)
+      	#print ".".pink
+        #$need_nl = 1
+      	#print_nl_maybe
+      	#puts "-ign- " + colorcode2(str, "aux")
+      elsif is_error_line(str)
         substantial(str, "error")
         $no_of_errors += 1
       elsif is_warning_line(str)
         substantial(str, "warning")
         $no_of_warnings += 1
       elsif is_error_aux_line(str)
-        print_err_aux(str)
+      	if not is_error_aux_line($recent_line)
+          dump_message
+        else
+      	  $recent_message += colorcode(str.bold, "aux") + "\n"
+      	end
       elsif is_linker_error_line(str)
+      	dump_message
         print_linker_err(str)
       elsif is_compiler_line(str)
-        nothing_exciting(str)
-      elsif $initlines == 1
+      	dump_message
         print_boring(str)
       else
-        if ($no_of_errors > $maxerrors)
-          print colorcode(".".bold, "aux")
-        elsif
-          puts colorcode(str.bold, "aux") 
-        end
+        print_boring(str)
+      end
+
+      if not str.empty?
+      	$recent_line = str
       end
       
     end
 end
 tdif = Time.now - time_start
+
+dump_message
 
 summary_text  = "   Items: " + $no_of_items.to_s
 
@@ -245,7 +305,7 @@ if ($no_of_errors > 0)
 end
 
 if ($no_of_warnings > 0)
-  summary_text += "   Warnings: " + $no_of_warnings.to_s
+  summary_text += "   Warnings: " + $no_of_warnings.to_s + " (" + $unique_warnings.to_s + " unique)"
 end
 
 time_text = "Compile time: " + time_dif_fancy(tdif) + "   "
