@@ -26,7 +26,6 @@ def time_dif_fancy(total_seconds)
   seconds = total_seconds % 60
   minutes = (total_seconds / 60) % 60
   hours = total_seconds / (60 * 60)
-
   format("%02d:%02d:%02d", hours, minutes, seconds) #=> "01:00:00"
 end
 
@@ -121,17 +120,14 @@ def print_nl_maybe
 end
 
 def print_err_aux(str)
-  print_nl_maybe
   if ($no_of_errors > $maxerrors)
-    #print colorcode(".".bold, "aux")
-    puts "-eaj- " + colorcode(str, "aux")
-  elsif not is_error_aux_line($recent_line)
-  	dump_message
-  	$recent_message += colorcode(str.bold, "aux") + "\n"  	
-  elsif not str.empty?
+  	print colorcode(".".bold, "aux")
+    $need_nl = 1
+  else
+  	if not is_error_aux_line($recent_line)
+  	  dump_message
+  	end
   	$recent_message += colorcode(str.bold, "aux") + "\n"
-  elsif not str.empty?
-  	puts str.pink
   end
 end
 
@@ -147,11 +143,9 @@ def print_boring(str)
     $need_nl = 1
   elsif (not nl.empty?) && is_compiler_line(str) && (not nl.join.include? ".o")
     print_nl_maybe
-    puts ("\nLINKING " + nl.join).bold.green;
+    puts ("LINKING " + nl.join).bold.green;
   else
   	$recent_message += colorcode2(str.bold, "aux") + "\n"
-    #print colorcode2(".".bold, "")
-    #puts "-bj- " + colorcode2(str, "aux")
   end
 end
 
@@ -189,9 +183,6 @@ def format_substantial(str, type)
       nstr += colorcode(token.to_s + ":", type)
     end
   }
-#  if not nstr.empty?
-#  	nstr = $prepend_message + nstr
-#  end
   nstr
 end
 
@@ -209,15 +200,11 @@ def substantial(str, type)
     $recent_message += format_substantial(str, type) + "\n"
     $printworthy = 1
   end
-#  if not $prepend_message.empty?
-#    puts "prepend " + $prepend_message.pink 
-#  end
-#  $prepend_message = ""
 end
 
 def print_linker_err(str)
   print_nl_maybe
-  puts "linkerr " + str.bold.lred
+  puts str.bold.lred
   $no_of_errors += 1
 end
 
@@ -262,10 +249,10 @@ Open3.popen2e(cmd_line) do |stdin, stdout, stderr, wait_thr|
       str.delete!("\n")
 
       if is_ignored_line(str)
-      	#print ".".pink
+      	#print ".".magenta
         #$need_nl = 1
       	#print_nl_maybe
-      	#puts "-ign- " + colorcode2(str, "aux")
+      	#puts "\n-ign- " + colorcode2(str, "aux")
       elsif is_error_line(str)
         substantial(str, "error")
         $no_of_errors += 1
